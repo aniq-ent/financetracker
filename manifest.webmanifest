@@ -1,0 +1,9 @@
+{
+  "name": "Finance Tracker",
+  "short_name": "Finances",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f8faf7",
+  "theme_color": "#157f5f",
+  "description": "A mobile-friendly monthly expense tracker."
+}
