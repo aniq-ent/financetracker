@@ -158,8 +158,13 @@
       <section id="listView" class="content-panel" aria-label="Expense list">
         <div class="panel-heading">
           <h2>This month</h2>
-          <button id="exportButton" class="ghost-button" type="button">Export CSV</button>
+          <div class="panel-actions">
+            <button id="importButton" class="ghost-button" type="button">Import CSV</button>
+            <button id="exportButton" class="ghost-button" type="button">Export CSV</button>
+          </div>
         </div>
+        <input id="importInput" class="file-input" type="file" accept=".csv,text/csv">
+        <p id="importStatus" class="import-status" aria-live="polite"></p>
         <div id="expenseList" class="expense-list"></div>
         <p id="emptyList" class="empty-state">Add your first expense to see the month take shape.</p>
       </section>
