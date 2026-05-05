@@ -55,13 +55,16 @@
         </div>
       </section>
 
-      <section class="content-panel" aria-label="Category budgets">
-        <div class="panel-heading">
-          <h2>Category budgets</h2>
-          <span class="subtle">This month</span>
-        </div>
+      <details class="content-panel collapsible-panel" aria-label="Category budgets">
+        <summary>
+          <span>
+            <strong>Category limits</strong>
+            <small>This month</small>
+          </span>
+          <span class="collapse-icon" aria-hidden="true"></span>
+        </summary>
         <div id="categoryBudgetList" class="budget-list"></div>
-      </section>
+      </details>
 
       <section class="content-panel" aria-label="Recurring expenses">
         <div class="panel-heading">
