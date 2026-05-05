@@ -1,9 +1,35 @@
 {
   "name": "Finance Tracker",
   "short_name": "Finances",
+  "description": "A mobile-friendly monthly expense tracker.",
   "start_url": ".",
+  "scope": ".",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#f8faf7",
   "theme_color": "#157f5f",
-  "description": "A mobile-friendly monthly expense tracker."
+  "categories": ["finance", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Open Finance Tracker",
+      "short_name": "Tracker",
+      "description": "Open your monthly expense tracker.",
+      "url": ".",
+      "icons": [
+        {
+          "src": "icons/icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
 }
