@@ -55,8 +55,62 @@
         </div>
       </section>
 
+      <section class="content-panel" aria-label="Category budgets">
+        <div class="panel-heading">
+          <h2>Category budgets</h2>
+          <span class="subtle">This month</span>
+        </div>
+        <div id="categoryBudgetList" class="budget-list"></div>
+      </section>
+
+      <section class="content-panel" aria-label="Recurring expenses">
+        <div class="panel-heading">
+          <h2>Recurring</h2>
+          <button id="applyRecurringButton" class="ghost-button" type="button">Apply to month</button>
+        </div>
+        <form id="recurringForm" class="mini-form">
+          <label>
+            <span>Description</span>
+            <input id="recurringDescriptionInput" type="text" maxlength="48" placeholder="Rent, phone, streaming" required>
+          </label>
+          <div class="form-split">
+            <label>
+              <span>Amount</span>
+              <div class="input-row">
+                <span>$</span>
+                <input id="recurringAmountInput" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="1200" required>
+              </div>
+            </label>
+            <label>
+              <span>Day</span>
+              <input id="recurringDayInput" type="number" min="1" max="31" step="1" inputmode="numeric" placeholder="1" required>
+            </label>
+          </div>
+          <label>
+            <span>Category</span>
+            <select id="recurringCategoryInput">
+              <option>Food</option>
+              <option>Housing</option>
+              <option>Transport</option>
+              <option>Utilities</option>
+              <option>Health</option>
+              <option>Shopping</option>
+              <option>Entertainment</option>
+              <option>Savings</option>
+              <option>Other</option>
+            </select>
+          </label>
+          <button class="secondary-button" type="submit">Save recurring</button>
+        </form>
+        <div id="recurringList" class="recurring-list"></div>
+        <p id="emptyRecurring" class="empty-state">Save bills or subscriptions once, then apply them to any month.</p>
+      </section>
+
       <section class="form-panel" aria-label="Add an expense">
-        <h2>Add expense</h2>
+        <div class="panel-heading">
+          <h2 id="expenseFormTitle">Add expense</h2>
+          <button id="cancelEditButton" class="ghost-button hidden" type="button">Cancel edit</button>
+        </div>
         <form id="expenseForm">
           <label>
             <span>Description</span>
@@ -89,7 +143,7 @@
               <option>Other</option>
             </select>
           </label>
-          <button class="primary-button" type="submit">Add expense</button>
+          <button id="expenseSubmitButton" class="primary-button" type="submit">Add expense</button>
         </form>
       </section>
 
@@ -128,7 +182,10 @@
         </div>
         <div class="expense-side">
           <strong></strong>
-          <button type="button" aria-label="Delete expense">Delete</button>
+          <div class="expense-actions">
+            <button class="edit-expense" type="button">Edit</button>
+            <button class="delete-expense" type="button">Delete</button>
+          </div>
         </div>
       </article>
     </template>

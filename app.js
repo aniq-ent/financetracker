@@ -1,5 +1,7 @@
 const STORAGE_KEY = "finance-tracker-expenses";
 const BUDGET_KEY = "finance-tracker-budgets";
+const CATEGORY_BUDGET_KEY = "finance-tracker-category-budgets";
+const RECURRING_KEY = "finance-tracker-recurring-expenses";
 
 const categories = {
   Food: "#157f5f",
@@ -12,6 +14,8 @@ const categories = {
   Savings: "#4f8f42",
   Other: "#68746d"
 };
+
+const categoryNames = Object.keys(categories);
 
 const formatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -27,11 +31,14 @@ const shortFormatter = new Intl.NumberFormat("en-US", {
 
 const els = {
   amount: document.querySelector("#amountInput"),
+  applyRecurring: document.querySelector("#applyRecurringButton"),
   budget: document.querySelector("#budgetInput"),
   budgetCaption: document.querySelector("#budgetCaption"),
   budgetLeft: document.querySelector("#budgetLeft"),
   budgetMeter: document.querySelector("#budgetMeter"),
+  cancelEdit: document.querySelector("#cancelEditButton"),
   category: document.querySelector("#categoryInput"),
+  categoryBudgetList: document.querySelector("#categoryBudgetList"),
   categoryCount: document.querySelector("#categoryCount"),
   categoryList: document.querySelector("#categoryList"),
   categoriesView: document.querySelector("#categoriesView"),
@@ -40,20 +47,32 @@ const els = {
   description: document.querySelector("#descriptionInput"),
   emptyCategories: document.querySelector("#emptyCategories"),
   emptyList: document.querySelector("#emptyList"),
+  emptyRecurring: document.querySelector("#emptyRecurring"),
+  expenseFormTitle: document.querySelector("#expenseFormTitle"),
+  expenseSubmit: document.querySelector("#expenseSubmitButton"),
   exportButton: document.querySelector("#exportButton"),
   form: document.querySelector("#expenseForm"),
   list: document.querySelector("#expenseList"),
   listView: document.querySelector("#listView"),
   month: document.querySelector("#monthInput"),
   paceCaption: document.querySelector("#paceCaption"),
+  recurringAmount: document.querySelector("#recurringAmountInput"),
+  recurringCategory: document.querySelector("#recurringCategoryInput"),
+  recurringDay: document.querySelector("#recurringDayInput"),
+  recurringDescription: document.querySelector("#recurringDescriptionInput"),
+  recurringForm: document.querySelector("#recurringForm"),
+  recurringList: document.querySelector("#recurringList"),
   spentCaption: document.querySelector("#spentCaption"),
   spentTotal: document.querySelector("#spentTotal"),
   template: document.querySelector("#expenseTemplate"),
   tabs: document.querySelectorAll(".tab")
 };
 
-let expenses = readJson(STORAGE_KEY, []);
-let budgets = readJson(BUDGET_KEY, {});
+let expenses = ensureArray(readJson(STORAGE_KEY, []));
+let budgets = ensureObject(readJson(BUDGET_KEY, {}));
+let categoryBudgets = ensureObject(readJson(CATEGORY_BUDGET_KEY, {}));
+let recurringExpenses = ensureArray(readJson(RECURRING_KEY, []));
+let editingId = null;
 
 function readJson(key, fallback) {
   try {
@@ -65,6 +84,21 @@ function readJson(key, fallback) {
 
 function writeJson(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
+}
+
+function ensureArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function ensureObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function makeId() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function currentMonth() {
@@ -91,19 +125,37 @@ function daysElapsed(month) {
   return isThisMonth ? now.getDate() : new Date(year, monthIndex, 0).getDate();
 }
 
+function daysInMonth(month) {
+  const [year, monthIndex] = month.split("-").map(Number);
+  return new Date(year, monthIndex, 0).getDate();
+}
+
+function dateForMonthDay(month, day) {
+  const safeDay = Math.min(Math.max(Number(day) || 1, 1), daysInMonth(month));
+  return `${month}-${String(safeDay).padStart(2, "0")}`;
+}
+
 function monthExpenses() {
   return expenses
-    .filter((expense) => expense.date.startsWith(els.month.value))
-    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
+    .filter((expense) => typeof expense.date === "string" && expense.date.startsWith(els.month.value))
+    .sort((a, b) => b.date.localeCompare(a.date) || Number(b.createdAt || 0) - Number(a.createdAt || 0));
+}
+
+function expensesByCategory(visibleExpenses) {
+  return visibleExpenses.reduce((acc, expense) => {
+    acc[expense.category] = (acc[expense.category] || 0) + Number(expense.amount || 0);
+    return acc;
+  }, {});
 }
 
 function render() {
   const visibleExpenses = monthExpenses();
-  const total = visibleExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const total = visibleExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
   const budget = Number(budgets[els.month.value] || 0);
   const left = budget - total;
   const average = total / Math.max(daysElapsed(els.month.value), 1);
   const ratio = budget > 0 ? Math.min((total / budget) * 100, 100) : 0;
+  const grouped = expensesByCategory(visibleExpenses);
 
   els.budget.value = budget || "";
   els.spentTotal.textContent = shortFormatter.format(total);
@@ -117,7 +169,10 @@ function render() {
   els.budgetMeter.style.background = ratio >= 100 ? "var(--warn)" : ratio >= 80 ? "var(--gold)" : "var(--accent)";
 
   renderExpenseList(visibleExpenses);
-  renderCategories(visibleExpenses, total);
+  renderCategoryBudgets(grouped);
+  renderCategories(grouped, total);
+  renderRecurringList();
+  renderEditState();
 }
 
 function renderExpenseList(visibleExpenses) {
@@ -130,26 +185,101 @@ function renderExpenseList(visibleExpenses) {
     const detail = item.querySelector("p");
     const amount = item.querySelector("strong");
     const dot = item.querySelector(".category-dot");
-    const button = item.querySelector("button");
+    const editButton = item.querySelector(".edit-expense");
+    const deleteButton = item.querySelector(".delete-expense");
 
     title.textContent = expense.description;
-    detail.textContent = `${expense.category} • ${formatDate(expense.date)}`;
-    amount.textContent = formatter.format(expense.amount);
+    detail.textContent = `${expense.category} - ${formatDate(expense.date)}`;
+    amount.textContent = formatter.format(Number(expense.amount || 0));
     dot.style.background = categories[expense.category] || categories.Other;
-    button.addEventListener("click", () => deleteExpense(expense.id));
+    editButton.addEventListener("click", () => beginEdit(expense.id));
+    deleteButton.addEventListener("click", () => deleteExpense(expense.id));
 
     els.list.append(item);
   });
 }
 
-function renderCategories(visibleExpenses, total) {
+function renderCategoryBudgets(grouped) {
+  const monthBudgets = ensureObject(categoryBudgets[els.month.value]);
+  els.categoryBudgetList.replaceChildren();
+
+  categoryNames.forEach((category) => {
+    const spent = Number(grouped[category] || 0);
+    const budget = Number(monthBudgets[category] || 0);
+    const row = document.createElement("article");
+    row.className = "budget-item";
+
+    const copy = document.createElement("div");
+    copy.className = "budget-copy";
+
+    const title = document.createElement("strong");
+    title.textContent = category;
+
+    const statusText = document.createElement("span");
+    copy.append(title, statusText);
+
+    const label = document.createElement("label");
+    const labelText = document.createElement("span");
+    labelText.textContent = "Limit";
+    const input = document.createElement("input");
+    input.type = "number";
+    input.min = "0";
+    input.step = "1";
+    input.inputMode = "decimal";
+    input.placeholder = "0";
+    input.value = budget || "";
+    label.append(labelText, input);
+
+    const bar = document.createElement("div");
+    bar.className = "budget-status";
+    const fill = document.createElement("span");
+    bar.append(fill);
+
+    input.addEventListener("input", () => {
+      saveCategoryBudget(category, input.value);
+      updateCategoryBudgetRow(statusText, fill, spent, Number(input.value || 0));
+    });
+
+    row.append(copy, label, bar);
+    els.categoryBudgetList.append(row);
+    updateCategoryBudgetRow(statusText, fill, spent, budget);
+  });
+}
+
+function updateCategoryBudgetRow(statusText, fill, spent, budget) {
+  const remaining = budget - spent;
+  const ratio = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
+
+  statusText.textContent = budget > 0
+    ? `${formatter.format(spent)} spent, ${formatter.format(remaining)} left`
+    : `${formatter.format(spent)} spent`;
+  statusText.style.color = remaining < 0 && budget > 0 ? "var(--warn)" : "var(--muted)";
+  fill.style.width = `${ratio}%`;
+  fill.style.background = ratio >= 100 ? "var(--warn)" : ratio >= 80 ? "var(--gold)" : "var(--accent)";
+}
+
+function saveCategoryBudget(category, rawValue) {
+  const value = Number(rawValue || 0);
+  const month = els.month.value;
+  categoryBudgets[month] = ensureObject(categoryBudgets[month]);
+
+  if (value > 0) {
+    categoryBudgets[month][category] = value;
+  } else {
+    delete categoryBudgets[month][category];
+  }
+
+  if (Object.keys(categoryBudgets[month]).length === 0) {
+    delete categoryBudgets[month];
+  }
+
+  writeJson(CATEGORY_BUDGET_KEY, categoryBudgets);
+}
+
+function renderCategories(grouped, total) {
   els.categoryList.replaceChildren();
 
-  const grouped = visibleExpenses.reduce((acc, expense) => {
-    acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
-    return acc;
-  }, {});
-
+  const monthBudgets = ensureObject(categoryBudgets[els.month.value]);
   const rows = Object.entries(grouped).sort((a, b) => b[1] - a[1]);
   els.categoryCount.textContent = `${rows.length} categor${rows.length === 1 ? "y" : "ies"}`;
   els.emptyCategories.classList.toggle("hidden", rows.length > 0);
@@ -162,7 +292,11 @@ function renderCategories(visibleExpenses, total) {
     name.textContent = category;
 
     const value = document.createElement("span");
-    value.textContent = formatter.format(amount);
+    const budget = Number(monthBudgets[category] || 0);
+    value.textContent = budget > 0
+      ? `${formatter.format(amount)} / ${formatter.format(budget)}`
+      : formatter.format(amount);
+    value.style.color = budget > 0 && amount > budget ? "var(--warn)" : "var(--ink)";
 
     const bar = document.createElement("div");
     bar.className = "category-bar";
@@ -177,6 +311,41 @@ function renderCategories(visibleExpenses, total) {
   });
 }
 
+function renderRecurringList() {
+  els.recurringList.replaceChildren();
+  els.emptyRecurring.classList.toggle("hidden", recurringExpenses.length > 0);
+
+  recurringExpenses.forEach((expense) => {
+    const item = document.createElement("article");
+    item.className = "recurring-item";
+
+    const copy = document.createElement("div");
+    copy.className = "recurring-copy";
+
+    const title = document.createElement("strong");
+    title.textContent = expense.description;
+
+    const detail = document.createElement("span");
+    detail.textContent = `${formatter.format(Number(expense.amount || 0))} - ${expense.category} - day ${expense.day}`;
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = "Remove";
+    button.addEventListener("click", () => deleteRecurring(expense.id));
+
+    copy.append(title, detail);
+    item.append(copy, button);
+    els.recurringList.append(item);
+  });
+}
+
+function renderEditState() {
+  const isEditing = Boolean(editingId);
+  els.expenseFormTitle.textContent = isEditing ? "Edit expense" : "Add expense";
+  els.expenseSubmit.textContent = isEditing ? "Save changes" : "Add expense";
+  els.cancelEdit.classList.toggle("hidden", !isEditing);
+}
+
 function formatDate(value) {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year, month - 1, day).toLocaleDateString("en-US", {
@@ -185,10 +354,125 @@ function formatDate(value) {
   });
 }
 
+function expenseFromForm(existing = {}) {
+  return {
+    ...existing,
+    id: existing.id || makeId(),
+    amount: Number(els.amount.value),
+    category: els.category.value,
+    createdAt: existing.createdAt || Date.now(),
+    date: els.date.value,
+    description: els.description.value.trim(),
+    updatedAt: Date.now()
+  };
+}
+
+function resetExpenseForm() {
+  editingId = null;
+  els.form.reset();
+  els.date.value = today();
+  renderEditState();
+}
+
+function beginEdit(id) {
+  const expense = expenses.find((item) => item.id === id);
+  if (!expense) return;
+
+  editingId = id;
+  els.description.value = expense.description || "";
+  els.amount.value = expense.amount || "";
+  els.date.value = expense.date || today();
+  els.category.value = expense.category || "Other";
+  renderEditState();
+  document.querySelector(".form-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+  els.description.focus();
+}
+
 function deleteExpense(id) {
+  if (editingId === id) {
+    resetExpenseForm();
+  }
+
   expenses = expenses.filter((expense) => expense.id !== id);
   writeJson(STORAGE_KEY, expenses);
   render();
+}
+
+function addOrUpdateExpense() {
+  if (editingId) {
+    expenses = expenses.map((expense) => (
+      expense.id === editingId ? expenseFromForm(expense) : expense
+    ));
+  } else {
+    expenses.push(expenseFromForm());
+  }
+
+  writeJson(STORAGE_KEY, expenses);
+  resetExpenseForm();
+  render();
+  els.description.focus();
+}
+
+function addRecurringExpense() {
+  recurringExpenses.push({
+    id: makeId(),
+    amount: Number(els.recurringAmount.value),
+    category: els.recurringCategory.value,
+    createdAt: Date.now(),
+    day: Math.min(Math.max(Number(els.recurringDay.value), 1), 31),
+    description: els.recurringDescription.value.trim()
+  });
+
+  writeJson(RECURRING_KEY, recurringExpenses);
+  els.recurringForm.reset();
+  els.recurringDay.value = "1";
+  render();
+}
+
+function deleteRecurring(id) {
+  recurringExpenses = recurringExpenses.filter((expense) => expense.id !== id);
+  writeJson(RECURRING_KEY, recurringExpenses);
+  render();
+}
+
+function applyRecurringToMonth() {
+  const month = els.month.value;
+  let added = 0;
+
+  recurringExpenses.forEach((recurring) => {
+    const alreadyApplied = expenses.some((expense) => (
+      expense.recurringId === recurring.id && expense.recurringMonth === month
+    ));
+
+    if (alreadyApplied) return;
+
+    expenses.push({
+      id: makeId(),
+      amount: Number(recurring.amount || 0),
+      category: recurring.category,
+      createdAt: Date.now(),
+      date: dateForMonthDay(month, recurring.day),
+      description: recurring.description,
+      recurringId: recurring.id,
+      recurringMonth: month
+    });
+    added += 1;
+  });
+
+  if (added > 0) {
+    writeJson(STORAGE_KEY, expenses);
+  }
+
+  flashApplyButton(added);
+  render();
+}
+
+function flashApplyButton(added) {
+  const original = "Apply to month";
+  els.applyRecurring.textContent = added > 0 ? `Added ${added}` : "Already applied";
+  window.setTimeout(() => {
+    els.applyRecurring.textContent = original;
+  }, 1400);
 }
 
 function exportCsv() {
@@ -198,7 +482,7 @@ function exportCsv() {
     expense.date,
     expense.description,
     expense.category,
-    expense.amount.toFixed(2)
+    Number(expense.amount || 0).toFixed(2)
   ])]
     .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
     .join("\n");
@@ -214,22 +498,16 @@ function exportCsv() {
 
 els.form.addEventListener("submit", (event) => {
   event.preventDefault();
-
-  expenses.push({
-    id: crypto.randomUUID(),
-    amount: Number(els.amount.value),
-    category: els.category.value,
-    createdAt: Date.now(),
-    date: els.date.value,
-    description: els.description.value.trim()
-  });
-
-  writeJson(STORAGE_KEY, expenses);
-  els.form.reset();
-  els.date.value = today();
-  render();
-  els.description.focus();
+  addOrUpdateExpense();
 });
+
+els.recurringForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  addRecurringExpense();
+});
+
+els.applyRecurring.addEventListener("click", applyRecurringToMonth);
+els.cancelEdit.addEventListener("click", resetExpenseForm);
 
 els.budget.addEventListener("input", () => {
   const value = Number(els.budget.value || 0);
@@ -244,6 +522,7 @@ els.budget.addEventListener("input", () => {
 
 els.month.addEventListener("change", () => {
   els.date.value = `${els.month.value}-01`;
+  editingId = null;
   render();
 });
 
@@ -260,4 +539,5 @@ els.exportButton.addEventListener("click", exportCsv);
 
 els.month.value = currentMonth();
 els.date.value = today();
+els.recurringDay.value = "1";
 render();

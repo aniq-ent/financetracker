@@ -156,7 +156,9 @@ select {
 
 .budget-panel label,
 .form-panel form,
-.form-panel label {
+.form-panel label,
+.mini-form,
+.mini-form label {
   display: grid;
   gap: 8px;
 }
@@ -219,6 +221,7 @@ select {
 }
 
 .primary-button,
+.secondary-button,
 .ghost-button,
 .tab {
   min-height: 46px;
@@ -230,6 +233,11 @@ select {
 .primary-button {
   color: #fff;
   background: var(--accent);
+}
+
+.secondary-button {
+  color: var(--accent-dark);
+  background: #dceee6;
 }
 
 .ghost-button {
@@ -272,13 +280,17 @@ select {
 }
 
 .expense-list,
-.category-list {
+.category-list,
+.budget-list,
+.recurring-list {
   display: grid;
   gap: 10px;
 }
 
 .expense-item,
-.category-item {
+.category-item,
+.budget-item,
+.recurring-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -288,6 +300,72 @@ select {
   border-radius: 8px;
   padding: 12px;
   background: #fbfdfb;
+}
+
+.budget-item,
+.recurring-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.budget-item label {
+  display: grid;
+  gap: 6px;
+}
+
+.budget-item input {
+  width: 112px;
+  min-height: 40px;
+}
+
+.budget-copy,
+.recurring-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.budget-copy strong,
+.recurring-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.budget-copy span,
+.recurring-copy span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.budget-status {
+  grid-column: 1 / -1;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8eee9;
+}
+
+.budget-status span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.mini-form {
+  margin-bottom: 12px;
+}
+
+.recurring-item button {
+  border: 0;
+  padding: 8px 0 8px 12px;
+  color: var(--warn);
+  background: transparent;
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 
 .expense-main {
@@ -330,13 +408,26 @@ select {
   font-size: 1rem;
 }
 
-.expense-side button {
+.expense-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.expense-actions button {
   border: 0;
   padding: 0;
-  color: var(--warn);
   background: transparent;
   font-size: 0.78rem;
   font-weight: 800;
+}
+
+.edit-expense {
+  color: var(--accent-dark);
+}
+
+.delete-expense {
+  color: var(--warn);
 }
 
 .category-item {
@@ -390,6 +481,19 @@ select {
   .meter {
     margin-bottom: 18px;
   }
+
+  .mini-form {
+    grid-template-columns: 1fr 1fr;
+    align-items: end;
+  }
+
+  .mini-form label:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .mini-form .secondary-button {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 430px) {
@@ -407,5 +511,18 @@ select {
 
   .form-split {
     grid-template-columns: 1fr;
+  }
+
+  .panel-heading {
+    align-items: flex-start;
+  }
+
+  .budget-item,
+  .recurring-item {
+    grid-template-columns: 1fr;
+  }
+
+  .budget-item input {
+    width: 100%;
   }
 }
