@@ -52,6 +52,9 @@ const els = {
   expenseSubmit: document.querySelector("#expenseSubmitButton"),
   exportButton: document.querySelector("#exportButton"),
   form: document.querySelector("#expenseForm"),
+  importButton: document.querySelector("#importButton"),
+  importInput: document.querySelector("#importInput"),
+  importStatus: document.querySelector("#importStatus"),
   list: document.querySelector("#expenseList"),
   listView: document.querySelector("#listView"),
   month: document.querySelector("#monthInput"),
@@ -133,6 +136,40 @@ function daysInMonth(month) {
 function dateForMonthDay(month, day) {
   const safeDay = Math.min(Math.max(Number(day) || 1, 1), daysInMonth(month));
   return `${month}-${String(safeDay).padStart(2, "0")}`;
+}
+
+function normalizeDate(value) {
+  const text = String(value || "").trim();
+  const iso = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (iso) {
+    const [, year, month, day] = iso;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+
+  const slash = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (slash) {
+    const [, month, day, rawYear] = slash;
+    const year = rawYear.length === 2 ? `20${rawYear}` : rawYear;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+
+  const parsed = new Date(text);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toISOString().slice(0, 10);
+  }
+
+  return "";
+}
+
+function normalizeCategory(value) {
+  const text = String(value || "").trim().toLowerCase();
+  return categoryNames.find((category) => category.toLowerCase() === text) || "Other";
+}
+
+function normalizeAmount(value) {
+  const text = String(value || "").replace(/[$,\s]/g, "").replace(/^\((.*)\)$/, "-$1");
+  const amount = Number(text);
+  return Number.isFinite(amount) && amount !== 0 ? Math.abs(amount) : 0;
 }
 
 function monthExpenses() {
@@ -496,6 +533,149 @@ function exportCsv() {
   URL.revokeObjectURL(url);
 }
 
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+
+    if (char === '"' && quoted && next === '"') {
+      cell += '"';
+      index += 1;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if (char === "," && !quoted) {
+      row.push(cell);
+      cell = "";
+    } else if ((char === "\n" || char === "\r") && !quoted) {
+      if (char === "\r" && next === "\n") {
+        index += 1;
+      }
+      row.push(cell);
+      if (row.some((value) => value.trim() !== "")) {
+        rows.push(row);
+      }
+      row = [];
+      cell = "";
+    } else {
+      cell += char;
+    }
+  }
+
+  row.push(cell);
+  if (row.some((value) => value.trim() !== "")) {
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+function headerIndex(headers, names) {
+  return headers.findIndex((header) => names.includes(header.trim().toLowerCase()));
+}
+
+function importedExpenseKey(expense) {
+  return [
+    expense.date,
+    String(expense.description || "").trim().toLowerCase(),
+    expense.category,
+    Number(expense.amount || 0).toFixed(2)
+  ].join("|");
+}
+
+function importCsvText(text) {
+  const rows = parseCsv(text);
+  if (rows.length < 2) {
+    return { added: 0, skipped: 0, invalid: 0, error: "No expense rows found" };
+  }
+
+  const headers = rows[0].map((header) => header.trim().toLowerCase());
+  const indexes = {
+    amount: headerIndex(headers, ["amount", "cost", "debit", "withdrawal"]),
+    category: headerIndex(headers, ["category", "type"]),
+    date: headerIndex(headers, ["date", "posted date", "transaction date"]),
+    description: headerIndex(headers, ["description", "name", "memo", "payee", "merchant"])
+  };
+
+  if (indexes.amount < 0 || indexes.date < 0 || indexes.description < 0) {
+    return { added: 0, skipped: 0, invalid: 0, error: "CSV needs Date, Description, and Amount columns" };
+  }
+
+  const existing = new Set(expenses.map(importedExpenseKey));
+  const imported = [];
+  let skipped = 0;
+  let invalid = 0;
+
+  rows.slice(1).forEach((row) => {
+    const date = normalizeDate(row[indexes.date]);
+    const amount = normalizeAmount(row[indexes.amount]);
+    const description = String(row[indexes.description] || "").trim();
+    const category = indexes.category >= 0 ? normalizeCategory(row[indexes.category]) : "Other";
+
+    if (!date || !amount || !description) {
+      invalid += 1;
+      return;
+    }
+
+    const expense = {
+      id: makeId(),
+      amount,
+      category,
+      createdAt: Date.now(),
+      date,
+      description,
+      importedAt: Date.now(),
+      source: "csv"
+    };
+
+    const key = importedExpenseKey(expense);
+    if (existing.has(key)) {
+      skipped += 1;
+      return;
+    }
+
+    existing.add(key);
+    imported.push(expense);
+  });
+
+  if (imported.length > 0) {
+    expenses.push(...imported);
+    writeJson(STORAGE_KEY, expenses);
+  }
+
+  return { added: imported.length, skipped, invalid, error: "" };
+}
+
+function showImportStatus(result) {
+  if (result.error) {
+    els.importStatus.textContent = result.error;
+    els.importStatus.style.color = "var(--warn)";
+    return;
+  }
+
+  els.importStatus.textContent = `Imported ${result.added}; skipped ${result.skipped} duplicate${result.skipped === 1 ? "" : "s"}; ignored ${result.invalid} invalid row${result.invalid === 1 ? "" : "s"}.`;
+  els.importStatus.style.color = result.added > 0 ? "var(--accent-dark)" : "var(--muted)";
+}
+
+function importCsvFile(file) {
+  const reader = new FileReader();
+  reader.addEventListener("load", () => {
+    const result = importCsvText(String(reader.result || ""));
+    showImportStatus(result);
+    render();
+    els.importInput.value = "";
+  });
+  reader.addEventListener("error", () => {
+    showImportStatus({ added: 0, skipped: 0, invalid: 0, error: "Could not read that CSV file" });
+    els.importInput.value = "";
+  });
+  reader.readAsText(file);
+}
+
 els.form.addEventListener("submit", (event) => {
   event.preventDefault();
   addOrUpdateExpense();
@@ -536,6 +716,13 @@ els.tabs.forEach((tab) => {
 });
 
 els.exportButton.addEventListener("click", exportCsv);
+els.importButton.addEventListener("click", () => els.importInput.click());
+els.importInput.addEventListener("change", () => {
+  const [file] = els.importInput.files;
+  if (file) {
+    importCsvFile(file);
+  }
+});
 
 els.month.value = currentMonth();
 els.date.value = today();
