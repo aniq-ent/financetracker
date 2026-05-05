@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Finance Tracker app icon</title>
+  <rect width="512" height="512" rx="112" fill="#157f5f"/>
+  <path fill="#f8faf7" d="M132 142h248c22 0 40 18 40 40v148c0 22-18 40-40 40H132c-22 0-40-18-40-40V182c0-22 18-40 40-40Z"/>
+  <path fill="#dfe8e2" d="M118 218h276v40H118z"/>
+  <circle cx="340" cy="312" r="32" fill="#c9932f"/>
+  <path fill="#157f5f" d="M145 302h116c9 0 16 7 16 16s-7 16-16 16H145c-9 0-16-7-16-16s7-16 16-16Z"/>
+</svg>
