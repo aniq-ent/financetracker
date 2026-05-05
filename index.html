@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f8faf7">
+    <title>Finance Tracker</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="topbar" aria-label="Monthly overview">
+        <div>
+          <p class="eyebrow">Monthly expenses</p>
+          <h1>Finance Tracker</h1>
+        </div>
+        <label class="month-picker">
+          <span>Month</span>
+          <input id="monthInput" type="month">
+        </label>
+      </section>
+
+      <section class="summary-grid" aria-label="Budget summary">
+        <article class="summary-card total">
+          <span class="label">Spent</span>
+          <strong id="spentTotal">$0</strong>
+          <small id="spentCaption">No expenses yet</small>
+        </article>
+        <article class="summary-card">
+          <span class="label">Budget left</span>
+          <strong id="budgetLeft">$0</strong>
+          <small id="budgetCaption">Set a monthly budget</small>
+        </article>
+        <article class="summary-card">
+          <span class="label">Daily pace</span>
+          <strong id="dailyPace">$0</strong>
+          <small id="paceCaption">Average per day</small>
+        </article>
+      </section>
+
+      <section class="budget-panel" aria-label="Budget settings">
+        <label>
+          <span>Monthly budget</span>
+          <div class="input-row">
+            <span>$</span>
+            <input id="budgetInput" type="number" min="0" step="1" inputmode="decimal" placeholder="2500">
+          </div>
+        </label>
+        <div class="meter" aria-hidden="true">
+          <span id="budgetMeter"></span>
+        </div>
+      </section>
+
+      <section class="form-panel" aria-label="Add an expense">
+        <h2>Add expense</h2>
+        <form id="expenseForm">
+          <label>
+            <span>Description</span>
+            <input id="descriptionInput" type="text" maxlength="48" placeholder="Coffee, rent, groceries" required>
+          </label>
+          <div class="form-split">
+            <label>
+              <span>Amount</span>
+              <div class="input-row">
+                <span>$</span>
+                <input id="amountInput" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="24.50" required>
+              </div>
+            </label>
+            <label>
+              <span>Date</span>
+              <input id="dateInput" type="date" required>
+            </label>
+          </div>
+          <label>
+            <span>Category</span>
+            <select id="categoryInput">
+              <option>Food</option>
+              <option>Housing</option>
+              <option>Transport</option>
+              <option>Utilities</option>
+              <option>Health</option>
+              <option>Shopping</option>
+              <option>Entertainment</option>
+              <option>Savings</option>
+              <option>Other</option>
+            </select>
+          </label>
+          <button class="primary-button" type="submit">Add expense</button>
+        </form>
+      </section>
+
+      <section class="tabs" aria-label="Expense views">
+        <button class="tab active" type="button" data-view="list">Expenses</button>
+        <button class="tab" type="button" data-view="categories">Categories</button>
+      </section>
+
+      <section id="listView" class="content-panel" aria-label="Expense list">
+        <div class="panel-heading">
+          <h2>This month</h2>
+          <button id="exportButton" class="ghost-button" type="button">Export CSV</button>
+        </div>
+        <div id="expenseList" class="expense-list"></div>
+        <p id="emptyList" class="empty-state">Add your first expense to see the month take shape.</p>
+      </section>
+
+      <section id="categoriesView" class="content-panel hidden" aria-label="Category breakdown">
+        <div class="panel-heading">
+          <h2>Breakdown</h2>
+          <span id="categoryCount" class="subtle">0 categories</span>
+        </div>
+        <div id="categoryList" class="category-list"></div>
+        <p id="emptyCategories" class="empty-state">Category totals will appear here after you add expenses.</p>
+      </section>
+    </main>
+
+    <template id="expenseTemplate">
+      <article class="expense-item">
+        <div class="expense-main">
+          <span class="category-dot"></span>
+          <div>
+            <h3></h3>
+            <p></p>
+          </div>
+        </div>
+        <div class="expense-side">
+          <strong></strong>
+          <button type="button" aria-label="Delete expense">Delete</button>
+        </div>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
