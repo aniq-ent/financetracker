@@ -279,6 +279,60 @@ select {
   margin-bottom: 12px;
 }
 
+.collapsible-panel {
+  padding: 0;
+}
+
+.collapsible-panel summary {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.collapsible-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.collapsible-panel summary span:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.collapsible-panel summary strong {
+  font-size: 1.02rem;
+}
+
+.collapsible-panel summary small {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.collapse-icon {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+  border-right: 2px solid var(--accent-dark);
+  border-bottom: 2px solid var(--accent-dark);
+  transform: rotate(45deg);
+  transition: transform 160ms ease;
+}
+
+.collapsible-panel[open] .collapse-icon {
+  transform: rotate(225deg);
+}
+
+.collapsible-panel .budget-list {
+  padding: 0 16px 16px;
+}
+
 .expense-list,
 .category-list,
 .budget-list,
