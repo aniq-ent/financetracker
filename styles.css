@@ -279,6 +279,30 @@ select {
   margin-bottom: 12px;
 }
 
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.import-status {
+  min-height: 1.2em;
+  margin: -4px 0 10px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
 .collapsible-panel {
   padding: 0;
 }
@@ -569,6 +593,15 @@ select {
 
   .panel-heading {
     align-items: flex-start;
+  }
+
+  .panel-actions {
+    width: 100%;
+  }
+
+  .panel-actions .ghost-button {
+    flex: 1 1 112px;
+    padding: 0 10px;
   }
 
   .budget-item,
